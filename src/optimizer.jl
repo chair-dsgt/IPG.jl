@@ -1,56 +1,21 @@
 abstract type IPGOptimizer 
 end 
 
-"""
-    search!(optimizer::IPGOptimizer, model::IPGModel; enumeration::Bool = false)::Nothing
-
-Run the IPG solution algorithm implemented by `optimizer` on the IPG model `model`.
-
-If `enumeration` is `false`, the optimizer searches for one equilibrium. If `enumeration` is `true`, the optimizer 
-searches for all equilibria. In that case, the optimizer must support equilibria enumeration. 
-
-The result is stored in the optimizer and can be retrieved using `get_equilibrium` or `get_equilibria`.
-"""
-function search!(optimizer::IPGOptimizer, model::IPGModel; enumeration::Bool = false, kwargs...)::Nothing
-    error("search! must be implemented by the IPG optimizer")
-end
-
-"""
-    get_equilibrium(optimizer::IPGOptimizer)::Profile
-    get_equilibrium(optimizer::IPGOptimizer, i::Int)::Profile
-
-Return an equilibrium stored in `optimizer`.
-
-If multiple equilibria are stored, `get_equilibrium(optimizer)` returns the first one. The function `get_equilibrium(optimizer, i)` 
-returns the `i`-th equilibrium stored in the optimizer. An error is returned if `i` is out of bounds.
-
-This function can only be called after `search!` has been called.
-"""
-function get_equilibrium(optimizer::IPGOptimizer)::Profile
-    error("get_equilibrium must be implemented by the IPG optimizer")
-end 
-function get_equilibrium(optimizer::IPGOptimizer, i::Int)::Profile
-    error("get_equilibrium must be implemented by the IPG optimizer")
-end
-
-"""
-    get_equilibria(optimizer::IPGOptimizer)::Vector{Profile}
-
-Return the list of equilibria stored in `optimizer`.
-
-Can only be called after `search!(optimizer, model, enumeration = true)` has been called.
-"""
-function get_equilibria(optimizer::IPGOptimizer)
-    error("get_equilibria must be implemented by the IPG optimizer")
-end
-
-"""
-    get_termination_status(optimizer::IPGOptimizer)::IPG.TerminationStatusCode
-
-Return an `IPG.TerminationStatusCode` describing why the IPG solver stopped.
-
-The optimizer must translate its internal termination status to an `IPG.TerminationStatusCode`.
-"""
-function get_termination_status(optimizer::IPGOptimizer)::TerminationStatusCode
-    error("get_termination_status must be implemented by the IPG optimizer")
+@enum TerminationStatusCode begin
+    SOLVE_NOT_CALLED
+    EQUILIBRIUM_FOUND
+    ENUMERATION_COMPLETE
+    NO_EQUILIBRIUM
+    INFEASIBLE
+    ITERATION_LIMIT
+    TIME_LIMIT
+    NODE_LIMIT
+    MEMORY_LIMIT
+    OTHER_LIMIT
+    SLOW_PROGRESS
+    NUMERICAL_ERROR
+    INVALID_MODEL
+    INVALID_OPTION
+    INTERRUPTED
+    OTHER_ERROR
 end
