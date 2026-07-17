@@ -53,41 +53,39 @@ If multiple equilibria are stored, the first one is used.
 * `equilibrium(model, i; player = n)` returns the strategy of player `n` at the `i`-th equilibrium stored in the optimizer attached to the IPG model 
 `model`. An error is thrown if `i` is out of bounds. 
 """
-function equilibrium(model::IPGModel)::Profile
+function equilibrium(model::IPGModel; player::Union{Nothing, Int} = nothing)::Union{Profile, Strategy}
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
-    end
-
-    return get_equilibrium(model.optimizer)
-end
-function equilibrium(model::IPGModel, i::Int)::Profile
-    if model.optimizer === nothing
-        throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
-    end
-
-    return get_equilibrium(model.optimizer, i)
-end
-function equilibrium(model::IPGModel; player::Int)::Strategy
-    if model.optimizer === nothing
-        throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
-    end
-    if player < 1 || player > length(model.players)
-        throw(ArgumentError("Player is invalid"))
     end
 
     eq = get_equilibrium(model.optimizer)
-    return strategy(eq, player)
+
+    if player === nothing
+        return eq
+    else
+        if player < 1 || player > length(model.players)
+            throw(ArgumentError("Player is invalid"))
+        end
+
+        return strategy(eq, player)
+    end
 end
-function equilibrium(model::IPGModel, i::Int; player::Int)::Strategy
+function equilibrium(model::IPGModel, i::Int; player::Union{Nothing, Int} = nothing)::Union{Profile, Strategy}
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
     end
-    if player < 1 || player > length(model.players)
-        throw(ArgumentError("Player is invalid"))
-    end
 
     eq = get_equilibrium(model.optimizer, i)
-    return strategy(eq, player)
+
+    if player === nothing
+        return eq
+    else
+        if player < 1 || player > length(model.players)
+            throw(ArgumentError("Player is invalid"))
+        end
+
+        return strategy(eq, player)
+    end
 end
 
 """
@@ -103,4 +101,26 @@ function equilibria(model::IPGModel)::Vector{Profile}
     end
 
     return get_equilibria(model.optimizer)
+end
+
+"""
+    termination_status(model::IPGModel)::TerminationStatusCode
+
+Return a `TerminationStatusCode` describing why the IPG solver stopped.
+
+# Example
+
+```julia
+julia> model = IPGModel(1);
+
+julia> termination_status(model)
+SOLVE_NOT_CALLED::TerminationStatusCode = 0
+```
+"""
+function termination_status(model::IPGModel)::TerminationStatusCode
+    if model.optimizer === nothing
+        return SOLVE_NOT_CALLED
+    end
+
+    return get_termination_status(model.optimizer)
 end
