@@ -168,6 +168,39 @@ function compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Prof
 end
 
 """
+    payoff_value(model::IPGModel, player::Int[, i::Int])::Float64
+
+Return the payoff value of the player `player` from the IPG model `model`.
+
+## Supported forms:
+
+* `payoff_value(model, n)` returns the payoff value of player `n` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
+If multiple equilibria are stored, the first one is used.
+* `payoff_value(model, n, i)` returns the payoff value of player `n` at the `i`-th equilibrium stored in the optimizer attached to the IPG model `model`. 
+An error is thrown if `i` is out of bounds.
+
+If the equilibrium is mixed, the returned value is the player's expected payoff.
+"""
+function payoff_value(model::IPGModel, player::Int)::Float64
+    if player < 1 || player > length(model.players)
+        throw(ArgumentError("Player is invalid"))
+    end
+
+    eq = equilibrium(model)
+
+    return compute_payoff_at_profile(model, player, eq)
+end
+function payoff_value(model::IPGModel, player::Int, i::Int)::Float64
+    if player < 1 || player > length(model.players)
+        throw(ArgumentError("Player is invalid"))
+    end
+    
+    eq = equilibrium(model, i)
+
+    return compute_payoff_at_profile(model, player, eq)
+end
+
+"""
     replace_param_with_val(payoff::JuMP.QuadExpr, parameter_values::Dict{JuMP.VariableRef, Float64}, reference_map::JuMP.ReferenceMap)::JuMP.QuadExpr
 
 Replace all parameters in `payoff` by their associated value in `parameter_values`.
