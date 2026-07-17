@@ -10,5 +10,6 @@ include("variables.jl")
 include("constraints.jl")
 include("payoff.jl")
 include("best_response.jl")
+include("find.jl")
 
 end

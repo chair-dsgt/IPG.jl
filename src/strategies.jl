@@ -28,6 +28,21 @@ const Strategy = Union{PureStrategy, MixedStrategy}
 const Profile = Vector{T} where T <: Strategy
 
 """
+    strategy(profile::Profile, player::Int)::Strategy
+
+Get the strategy of player `player` in the profile `profile`.
+"""
+function strategy(profile::Profile, player::Int)::Strategy
+    for strat in profile
+        if strat.id == player
+            return strat
+        end
+    end
+    throw(ArgumentError("No strategy found for player $(player)"))
+end
+
+
+"""
     empty_strategy_sample(num_players::Int)
 
 Create an empty strategy sample for `num_players` players.
