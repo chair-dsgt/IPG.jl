@@ -201,6 +201,24 @@ function payoff_value(model::IPGModel, player::Int, i::Int)::Float64
 end
 
 """
+    payoff(model::IPGModel, player::Int, profile::Profile)::Float64
+
+Return the payoff value of the player `player` from the IPG model `model` at the strategy profile `profile`.
+
+If `profile` is mixed, the returned value is the player's expected payoff.
+"""
+function payoff(model::IPGModel, player::Int, profile::Profile)::Float64
+    if player < 1 || player > length(model.players)
+        throw(ArgumentError("Player is invalid"))
+    end
+    if length(profile) != length(model.players)
+        throw(ArgumentError("A profile should contain one strategy per player"))
+    end
+    
+    return compute_payoff_at_profile(model, player, profile)
+end
+
+"""
     replace_param_with_val(payoff::JuMP.QuadExpr, parameter_values::Dict{JuMP.VariableRef, Float64}, reference_map::JuMP.ReferenceMap)::JuMP.QuadExpr
 
 Replace all parameters in `payoff` by their associated value in `parameter_values`.
