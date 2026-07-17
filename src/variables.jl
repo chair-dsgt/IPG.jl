@@ -49,3 +49,55 @@ macro variable(model, player, args...)
         $variable_call
     end)
 end
+
+"""
+    value(model::IPGModel, variable::JuMP.VariableRef)::Float64
+    value(model::IPGModel, variable::JuMP.VariableRef, i::Int)::Float64
+    value(strategy::Strategy, variable::JuMP.VariableRef)::Float64
+    value(profile::Profile, variable::JuMP.VariableRef)::Float64
+
+Return the value of the variable `variable` at a given profile or strategy.
+
+## Supported forms:
+* `value(model, variable)` returns the value of `variable` at the equilibrium stored in the optimizer attached to `model`. If multiple equilibria are stored, the first one is used.
+* `value(model, variable, i)` returns the value of `variable` at the `i`-th equilibrium stored in the optimizer attached to `model`. An error is thrown if `i` is out of bounds.
+* `value(strategy, variable)` returns the value of `variable` at the strategy `strategy`. The strategy must belong to the player that controls `variable`.
+* `value(profile, variable)` returns the value of `variable` at the profile `profile`. The value is read from the strategy in `profile` of the player that controls `variable`.
+
+If a strategy or profile is mixed, the returned value is the expected value of `variable` under the probability distribution over the pure strategies.
+"""
+function value(strategy::PureStrategy, variable::JuMP.VariableRef)::Float64
+    if haskey(strategy.variable_values, variable)
+        return strategy.variable_values[variable]
+    end
+
+    throw(ArgumentError("Variable is not part of this strategy"))
+end
+function value(strategy::MixedStrategy, variable::JuMP.VariableRef)::Float64
+    expected_value = 0.0
+
+    for (prob, pure_strat) in zip(strategy.probs, strategy.supp)
+        expected_value += prob * value(pure_strat, variable)
+    end
+
+    return expected_value
+end
+function value(profile::Profile, variable::JuMP.VariableRef)::Float64
+    for strategy in profile
+        try 
+            return value(strategy, variable)
+        catch err
+            if !(err isa ArgumentError)
+                rethrow(err)
+            end
+        end
+    end
+
+    throw(ArgumentError("Variable is not part of this profile"))
+end
+function value(model::IPGModel, variable::JuMP.VariableRef)::Float64
+    return value(equilibrium(model), variable)
+end
+function value(model::IPGModel, variable::JuMP.VariableRef, i::Int)::Float64
+    return value(equilibrium(model, i), variable)
+end
