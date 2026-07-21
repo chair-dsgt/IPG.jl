@@ -1,5 +1,5 @@
 """
-    search!(optimizer::IPGOptimizer, model::IPGModel; enumeration::Bool = false)::Nothing
+    search!(optimizer::IPGOptimizer, model::IPGModel; enumeration::Bool = false, kwargs...)::Nothing
 
 Run the IPG solution algorithm implemented by `optimizer` on the IPG model `model`.
 

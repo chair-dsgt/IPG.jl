@@ -1,5 +1,5 @@
 """
-    find_equilibrium!(model::IPGModel)::Nothing
+    find_equilibrium!(model::IPGModel; kwargs...)::Nothing
 
 Find an equilibrium profile of the IPG model `model`.
 
@@ -15,7 +15,7 @@ function find_equilibrium!(model::IPGModel; kwargs...)::Nothing
 end
 
 """
-    find_all_equilibria!(model::IPGModel)::Nothing
+    find_all_equilibria!(model::IPGModel; kwargs...)::Nothing
 
 Find all equilibrium profiles of the IPG model `model`.
 
