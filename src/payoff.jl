@@ -258,8 +258,9 @@ end
 
 """
     comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
+    comparable_payoff_value(model::IPGModel, player::Int, payoff_val::Float64)::Float64
 
-Return the payoff value of `player` from `model` at the strategy profile `profile`, converted so that larger values are always preferred, 
+Return the payoff value of `player` from `model` at the strategy profile `profile` or the payoff `payoff_val`, converted so that larger values are always preferred, 
 no matter the objective sense.
 
 If the player `player` has a maximisation payoff, the returned payoff is unchanged.
@@ -267,15 +268,17 @@ If the player `player` has a minimisation payoff, this returns the payoff value 
 
 This function is useful for comparing payoffs without having to consider the objective sense.
 """
-function comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
-    original_payoff = payoff(model, player, profile)
+function comparable_payoff_value(model::IPGModel, player::Int, payoff_val::Float64)::Float64
     player_model = model.players[player]
 
     if JuMP.objective_sense(player_model) == JuMP.MAX_SENSE
-        return original_payoff
+        return payoff_val
     elseif JuMP.objective_sense(player_model) == JuMP.MIN_SENSE
-        return -original_payoff
+        return -payoff_val
     else
         throw(ArgumentError("Payoff sense must be MIN or MAX"))
     end
+end
+function comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
+    return comparable_payoff_value(model, player, payoff(model, player, profile))
 end
