@@ -255,3 +255,27 @@ function replace_param_with_val(payoff::JuMP.QuadExpr, parameter_values::Dict{Ju
 
     return new_payoff
 end
+
+"""
+    comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
+
+Return the payoff value of `player` from `model` at the strategy profile `profile`, converted so that larger values are always preferred, 
+no matter the objective sense.
+
+If the player `player` has a maximisation payoff, the returned payoff is unchanged.
+If the player `player` has a minimisation payoff, this returns the payoff value multiplied by -1.
+
+This function is useful for comparing payoffs without having to consider the objective sense.
+"""
+function comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
+    payoff = payoff(model, player, profile)
+    player_model = model.players[player]
+
+    if JuMP.objective_sense(player_model) == JuMP.MAX_SENSE
+        return payoff
+    elseif JuMP.objective_sense(player_model) == JuMP.MIN_SENSE
+        return -payoff
+    else
+        throw(ArgumentError("Payoff sense must be MIN or MAX"))
+    end
+end
