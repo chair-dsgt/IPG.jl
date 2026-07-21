@@ -268,13 +268,13 @@ If the player `player` has a minimisation payoff, this returns the payoff value 
 This function is useful for comparing payoffs without having to consider the objective sense.
 """
 function comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
-    payoff = payoff(model, player, profile)
+    original_payoff = payoff(model, player, profile)
     player_model = model.players[player]
 
     if JuMP.objective_sense(player_model) == JuMP.MAX_SENSE
-        return payoff
+        return original_payoff
     elseif JuMP.objective_sense(player_model) == JuMP.MIN_SENSE
-        return -payoff
+        return -original_payoff
     else
         throw(ArgumentError("Payoff sense must be MIN or MAX"))
     end
