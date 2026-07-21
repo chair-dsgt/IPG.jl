@@ -5,12 +5,12 @@ Find an equilibrium profile of the IPG model `model`.
 
 If an equilibrium is found, it is stored in the optimizer attached to `model` and can be queried using the equilibrium access functions. 
 """
-function find_equilibrium!(model::IPGModel)::Nothing
+function find_equilibrium!(model::IPGModel; kwargs...)::Nothing
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling find_equilibrium!"))
     end
 
-    search!(model.optimizer, model; enumeration = false)
+    search!(model.optimizer, model; enumeration = false, kwargs...)
     return nothing
 end
 
@@ -23,12 +23,12 @@ The model's optimizer must support equilibria enumeration; otherwise an error is
 
 If at least one equilibrium is found, the equilibria are stored in the optimizer attached to `model` and can be queried using the equilibrium access functions. 
 """
-function find_all_equilibria!(model::IPGModel)::Nothing
+function find_all_equilibria!(model::IPGModel; kwargs...)::Nothing
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling find_all_equilibria!"))
     end
     
-    search!(model.optimizer, model; enumeration = true)
+    search!(model.optimizer, model; enumeration = true, kwargs...)
     return nothing
 end
 
