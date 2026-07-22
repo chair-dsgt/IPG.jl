@@ -1,17 +1,18 @@
 """
-    get_best_response_model(model::IPGModel, player_id::Int, profile::Profile[, optimizer_factory])::Tuple{JuMP.Model, JuMP.ReferenceMap}
+    get_best_response_model(model::IPGModel, player::Union{Int, String}, profile::Profile[, optimizer_factory])::Tuple{JuMP.Model, JuMP.ReferenceMap}
 
-Build the best-response optimization problem of the player `player_id` from the IPG model `model`, with respect to `profile`.
+Build the best-response optimization problem of the player `player` from the IPG model `model`, with respect to `profile`.
 
-Note that the resulting model will be a copy of `player_id`'s optimization problem, with the same variable names, but different references.
+Note that the resulting model will be a copy of `player`'s optimization problem, with the same variable names, but different references.
 
 # Arguments
 - `model`: the IPG model representing the game.
-- `player_id::Int`: number of the player whose best-response problem is built.
+- `player::Union{Int, String}`: the player whose best-response problem is built.
 - `profile::Profile`: should contain the strategies of all other players in the game to which the player belongs.
 - `optimizer_factory`: if specified, sets the optimizer of the best response model.
 """
-function get_best_response_model(model::IPGModel, player_id::Int, profile::Profile, optimizer_factory = nothing)::Tuple{JuMP.Model, JuMP.ReferenceMap}
+function get_best_response_model(model::IPGModel, player::Union{Int, String}, profile::Profile, optimizer_factory = nothing)::Tuple{JuMP.Model, JuMP.ReferenceMap}
+    player_id = get_player_id(model, player)
     player_model = model.players[player_id]
     var_to_param_map = model.var_to_param_maps[player_id]
     best_response_model, reference_map = JuMP.copy_model(player_model)
@@ -61,19 +62,20 @@ function get_best_response_model(model::IPGModel, player_id::Int, profile::Profi
 end
 
 """
-    best_response(model::IPGModel, player_id::Int, profile::Profile, optimizer_factory)::PureStrategy
+    best_response(model::IPGModel, player::Union{Int, String}, profile::Profile, optimizer_factory)::PureStrategy
 
-Return the best response strategy of the player `player_id` from the IPG model `model`, with respect to `profile`.
+Return the best response strategy of the player `player` from the IPG model `model`, with respect to `profile`.
 
 This function builds the best-response model, calls `optimize!` on it, and returns the resulting strategy.
 
 # Arguments
 - `model`: the IPG model representing the game.
-- `player_id::Int`: number of the player that will respond optimally to profile.
+- `player::Union{Int, String}`: the player that will respond optimally to profile.
 - `profile::Profile`: should contain the strategies of all other players in the game to which the player belongs.
 - `optimizer_factory`: sets the optimizer of the best response model.
 """
-function best_response(model::IPGModel, player_id::Int, profile::Profile, optimizer_factory; timelimit::Float64=Inf)::PureStrategy
+function best_response(model::IPGModel, player::Union{Int, String}, profile::Profile, optimizer_factory; timelimit::Float64=Inf)::PureStrategy
+    player_id = get_player_id(model, player)
     player_model = model.players[player_id]
 
     best_response_model, reference_map = get_best_response_model(model, player_id, profile, optimizer_factory)

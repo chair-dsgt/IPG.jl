@@ -1,5 +1,5 @@
 """
-    @variable(model::IPGModel, player::Int, expr, args..., kw_args...)
+    @variable(model::IPGModel, player::Union{Int, String}, expr, args..., kw_args...)
 
 Add a variable described by the expression `expr`, the positional arguments `args` and the keyword arguments `kw_args` to the player `player` from the IPG model `model`.
 
@@ -31,7 +31,8 @@ y
 ```
 """
 macro variable(model, player, args...)
-    player_model = :($(model).players[$(player)])
+    id = gensym(:player_id)
+    player_model = :($(model).players[$id])
 
     variable_call = Expr(
         :macrocall,
@@ -42,9 +43,7 @@ macro variable(model, player, args...)
     )
 
     return esc(quote
-        if $(player) < 1 || $(player) > length($(model).players)
-            throw(ArgumentError("Player is invalid"))
-        end
+        local $id = IPG.get_player_id($(model), $(player))
 
         $variable_call
     end)

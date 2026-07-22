@@ -1,5 +1,5 @@
 """
-    @payoff(model::IPGModel, player::Int, sense, func)
+    @payoff(model::IPGModel, player::Union{Int, String}, sense, func)
 
 Set the player `player`'s payoff sense to `sense` and payoff function to `func`, in the IPG model `model`.
 
@@ -20,7 +20,10 @@ julia> @payoff(model, 1, Max, 2x - 1)
 ```
 """
 macro payoff(model, player, sense, func)
-    player_model = :($(model).players[$(player)])
+    id = gensym(:player_id)
+    player_model = :($(model).players[$id])
+
+    prepared_payoff = gensym(:prepared_payoff)
 
     objective_call = Expr(
         :macrocall,
@@ -28,15 +31,13 @@ macro payoff(model, player, sense, func)
         LineNumberNode(@__LINE__, @__FILE__),
         player_model,
         sense,
-        :prepared_payoff,
+        prepared_payoff,
     )
 
     return esc(quote
-        if $(player) < 1 || $(player) > length($(model).players)
-            throw(ArgumentError("Player is invalid"))
-        end
+        local $id = IPG.get_player_id($(model), $(player))
 
-        prepared_payoff = IPG.prepare_payoff($(model), $(player), $(func))
+        local $prepared_payoff = IPG.prepare_payoff($(model), $(id), $(func))
 
         $objective_call
     end)
@@ -113,11 +114,12 @@ function get_parameter!(model::IPGModel, player::Int, variable::JuMP.VariableRef
 end
 
 """
-    compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Vector{<:PureStrategy})::Float64
+    compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
 
-Compute player `player_id`'s payoff at the pure profile `profile`.
+Compute `player`'s payoff at the pure profile `profile`.
 """
-function compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Vector{<:PureStrategy})::Float64
+function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
+    player_id = get_player_id(game, player)
     player_model = game.players[player_id]
     var_to_param_map = game.var_to_param_maps[player_id]
     payoff_function = JuMP.objective_function(player_model)
@@ -141,12 +143,14 @@ function compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Vect
 end
 
 """
-    compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Profile)::Float64
+    compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
 
-Compute player `player_id`'s expected payoff at the profile `profile` if `profile` has atleast one mixed strategy.
+Compute `player`'s expected payoff at the profile `profile` if `profile` has atleast one mixed strategy.
 Otherwise, the `compute_payoff_at_profile` for pure profiles is called.
 """
-function compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Profile)::Float64
+function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
+    player_id = get_player_id(game, player)
+
     if all(strategy -> strategy isa PureStrategy, profile) # Pure profile
         pure_profile = PureStrategy[strategy for strategy in profile]
         return compute_payoff_at_profile(game, player_id, pure_profile)
@@ -168,54 +172,49 @@ function compute_payoff_at_profile(game::IPGModel, player_id::Int, profile::Prof
 end
 
 """
-    payoff_value(model::IPGModel, player::Int[, i::Int])::Float64
+    payoff_value(model::IPGModel, player::Union{Int, String}[, i::Int])::Float64
 
 Return the payoff value of the player `player` from the IPG model `model`.
 
 ## Supported forms:
 
-* `payoff_value(model, n)` returns the payoff value of player `n` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
+* `payoff_value(model, player)` returns the payoff value of `player` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
 If multiple equilibria are stored, the first one is used.
-* `payoff_value(model, n, i)` returns the payoff value of player `n` at the `i`-th equilibrium stored in the optimizer attached to the IPG model `model`. 
+* `payoff_value(model, player, i)` returns the payoff value of `player` at the `i`-th equilibrium stored in the optimizer attached to the IPG model `model`. 
 An error is thrown if `i` is out of bounds.
 
 If the equilibrium is mixed, the returned value is the player's expected payoff.
 """
-function payoff_value(model::IPGModel, player::Int)::Float64
-    if player < 1 || player > length(model.players)
-        throw(ArgumentError("Player is invalid"))
-    end
+function payoff_value(model::IPGModel, player::Union{Int, String})::Float64
+    player_id = get_player_id(model, player)
 
     eq = equilibrium(model)
 
-    return compute_payoff_at_profile(model, player, eq)
+    return compute_payoff_at_profile(model, player_id, eq)
 end
-function payoff_value(model::IPGModel, player::Int, i::Int)::Float64
-    if player < 1 || player > length(model.players)
-        throw(ArgumentError("Player is invalid"))
-    end
-    
+function payoff_value(model::IPGModel, player::Union{Int, String}, i::Int)::Float64
+    player_id = get_player_id(model, player)
+
     eq = equilibrium(model, i)
 
-    return compute_payoff_at_profile(model, player, eq)
+    return compute_payoff_at_profile(model, player_id, eq)
 end
 
 """
-    payoff(model::IPGModel, player::Int, profile::Profile)::Float64
+    payoff(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
 
 Return the payoff value of the player `player` from the IPG model `model` at the strategy profile `profile`.
 
 If `profile` is mixed, the returned value is the player's expected payoff.
 """
-function payoff(model::IPGModel, player::Int, profile::Profile)::Float64
-    if player < 1 || player > length(model.players)
-        throw(ArgumentError("Player is invalid"))
-    end
+function payoff(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
     if length(profile) != length(model.players)
         throw(ArgumentError("A profile should contain one strategy per player"))
     end
+
+    player_id = get_player_id(model, player)
     
-    return compute_payoff_at_profile(model, player, profile)
+    return compute_payoff_at_profile(model, player_id, profile)
 end
 
 """
@@ -257,8 +256,8 @@ function replace_param_with_val(payoff::JuMP.QuadExpr, parameter_values::Dict{Ju
 end
 
 """
-    comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
-    comparable_payoff_value(model::IPGModel, player::Int, payoff_val::Float64)::Float64
+    comparable_payoff_value(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
+    comparable_payoff_value(model::IPGModel, player::Union{Int, String}, payoff_val::Float64)::Float64
 
 Return the payoff value of `player` from `model` at the strategy profile `profile` or the payoff `payoff_val`, converted so that larger values are always preferred, 
 no matter the objective sense.
@@ -268,8 +267,9 @@ If the player `player` has a minimisation payoff, this returns the payoff value 
 
 This function is useful for comparing payoffs without having to consider the objective sense.
 """
-function comparable_payoff_value(model::IPGModel, player::Int, payoff_val::Float64)::Float64
-    player_model = model.players[player]
+function comparable_payoff_value(model::IPGModel, player::Union{Int, String}, payoff_val::Float64)::Float64
+    player_id = get_player_id(model, player)
+    player_model = model.players[player_id]
 
     if JuMP.objective_sense(player_model) == JuMP.MAX_SENSE
         return payoff_val
@@ -279,6 +279,6 @@ function comparable_payoff_value(model::IPGModel, player::Int, payoff_val::Float
         throw(ArgumentError("Payoff sense must be MIN or MAX"))
     end
 end
-function comparable_payoff_value(model::IPGModel, player::Int, profile::Profile)::Float64
+function comparable_payoff_value(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
     return comparable_payoff_value(model, player, payoff(model, player, profile))
 end

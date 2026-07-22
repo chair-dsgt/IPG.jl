@@ -35,8 +35,8 @@ end
 """
     equilibrium(model::IPGModel)::Profile
     equilibrium(model::IPGModel, i::Int)::Profile
-    equilibrium(model::IPGModel; player::Int)::Strategy
-    equilibrium(model::IPGModel, i::Int; player::Int)::Strategy
+    equilibrium(model::IPGModel; player::Union{Int, String})::Strategy
+    equilibrium(model::IPGModel, i::Int; player::Union{Int, String})::Strategy
     
 
 Return an equilibrium profile or player strategy.
@@ -48,12 +48,12 @@ such as `find_equilibrium!` or `find_all_equilibria!`, must have been called bef
 
 * `equilibrium(model)` returns the equilibrium stored in the optimizer attached to the IPG model `model`. If multiple equilibria are stored, the first one is returned.
 * `equilibrium(model, i)` returns the `i`-th equilibrium stored in the optimizer attached to the IPG model `model`. An error is thrown if `i` is out of bounds. 
-* `equilibrium(model; player = n)` returns the strategy of player `n` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
+* `equilibrium(model; player)` returns the strategy of `player` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
 If multiple equilibria are stored, the first one is used.
-* `equilibrium(model, i; player = n)` returns the strategy of player `n` at the `i`-th equilibrium stored in the optimizer attached to the IPG model 
+* `equilibrium(model, i; player)` returns the strategy of `player` at the `i`-th equilibrium stored in the optimizer attached to the IPG model 
 `model`. An error is thrown if `i` is out of bounds. 
 """
-function equilibrium(model::IPGModel; player::Union{Nothing, Int} = nothing)::Union{Profile, Strategy}
+function equilibrium(model::IPGModel; player::Union{Nothing, Int, String} = nothing)::Union{Profile, Strategy}
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
     end
@@ -63,14 +63,11 @@ function equilibrium(model::IPGModel; player::Union{Nothing, Int} = nothing)::Un
     if player === nothing
         return eq
     else
-        if player < 1 || player > length(model.players)
-            throw(ArgumentError("Player is invalid"))
-        end
-
-        return strategy(eq, player)
+        player_id = get_player_id(model, player)
+        return strategy(eq, player_id)
     end
 end
-function equilibrium(model::IPGModel, i::Int; player::Union{Nothing, Int} = nothing)::Union{Profile, Strategy}
+function equilibrium(model::IPGModel, i::Int; player::Union{Nothing, Int, String} = nothing)::Union{Profile, Strategy}
     if model.optimizer === nothing
         throw(ArgumentError("Optimizer must have been set before calling equilibrium"))
     end
@@ -80,11 +77,9 @@ function equilibrium(model::IPGModel, i::Int; player::Union{Nothing, Int} = noth
     if player === nothing
         return eq
     else
-        if player < 1 || player > length(model.players)
-            throw(ArgumentError("Player is invalid"))
-        end
+        player_id = get_player_id(model, player)
 
-        return strategy(eq, player)
+        return strategy(eq, player_id)
     end
 end
 

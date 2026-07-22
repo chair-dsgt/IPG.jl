@@ -37,16 +37,16 @@ Return the list of equilibria stored in `optimizer`.
 
 Can only be called after `search!(optimizer, model, enumeration = true)` has been called.
 """
-function get_equilibria(optimizer::IPGOptimizer)
+function get_equilibria(optimizer::IPGOptimizer)::Vector{Profile}
     error("get_equilibria must be implemented by the IPG optimizer")
 end
 
 """
-    get_termination_status(optimizer::IPGOptimizer)::IPG.TerminationStatusCode
+    get_termination_status(optimizer::IPGOptimizer)::TerminationStatusCode
 
-Return an `IPG.TerminationStatusCode` describing why the IPG solver stopped.
+Return a `TerminationStatusCode` describing why the IPG solver stopped.
 
-The optimizer must translate its internal termination status to an `IPG.TerminationStatusCode`.
+The optimizer must translate its internal termination status to a `TerminationStatusCode`.
 """
 function get_termination_status(optimizer::IPGOptimizer)::TerminationStatusCode
     error("get_termination_status must be implemented by the IPG optimizer")

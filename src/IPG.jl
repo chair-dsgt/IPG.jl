@@ -13,7 +13,7 @@ include("best_response.jl")
 include("find.jl")
 
 export IPGModel, set_optimizer!, IPGOptimizer
-export PureStrategy, MixedStrategy, Strategy, Profile, strategy
+export PureStrategy, MixedStrategy, Strategy, Profile
 export @variable, @constraint, @payoff
 export find_equilibrium!, find_all_equilibria!
 export equilibrium, equilibria, termination_status
