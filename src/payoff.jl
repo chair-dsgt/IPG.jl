@@ -114,14 +114,14 @@ function get_parameter!(model::IPGModel, player::Int, variable::JuMP.VariableRef
 end
 
 """
-    compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
+    compute_payoff_at_profile(model::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
 
 Compute `player`'s payoff at the pure profile `profile`.
 """
-function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
-    player_id = get_player_id(game, player)
-    player_model = game.players[player_id]
-    var_to_param_map = game.var_to_param_maps[player_id]
+function compute_payoff_at_profile(model::IPGModel, player::Union{Int, String}, profile::Vector{<:PureStrategy})::Float64
+    player_id = get_player_id(model, player)
+    player_model = model.players[player_id]
+    var_to_param_map = model.var_to_param_maps[player_id]
     payoff_function = JuMP.objective_function(player_model)
 
     assignments = copy(profile[player_id].variable_values)
@@ -143,17 +143,17 @@ function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, p
 end
 
 """
-    compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
+    compute_payoff_at_profile(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
 
 Compute `player`'s expected payoff at the profile `profile` if `profile` has atleast one mixed strategy.
 Otherwise, the `compute_payoff_at_profile` for pure profiles is called.
 """
-function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
-    player_id = get_player_id(game, player)
+function compute_payoff_at_profile(model::IPGModel, player::Union{Int, String}, profile::Profile)::Float64
+    player_id = get_player_id(model, player)
 
     if all(strategy -> strategy isa PureStrategy, profile) # Pure profile
         pure_profile = PureStrategy[strategy for strategy in profile]
-        return compute_payoff_at_profile(game, player_id, pure_profile)
+        return compute_payoff_at_profile(model, player_id, pure_profile)
     end
 
     # Expected payoff:
@@ -165,7 +165,7 @@ function compute_payoff_at_profile(game::IPGModel, player::Union{Int, String}, p
         prob = prod(probs)
         pure_profile = PureStrategy[strats...]
 
-        expectation += prob * compute_payoff_at_profile(game, player_id, pure_profile)
+        expectation += prob * compute_payoff_at_profile(model, player_id, pure_profile)
     end
     
     return expectation
