@@ -51,3 +51,12 @@ The optimizer must translate its internal termination status to a `TerminationSt
 function get_termination_status(optimizer::IPGOptimizer)::TerminationStatusCode
     error("get_termination_status must be implemented by the IPG optimizer")
 end
+
+"""
+    supports_enumeration(optimizer::IPGOptimizer)::Bool
+
+Return `true` if `optimizer` supports enumeration and return `false` otherwise.
+"""
+function supports_enumeration(optimizer::IPGOptimizer)::Bool
+    error("supports_enumeration must be implemented by the IPG optimizer")
+end
