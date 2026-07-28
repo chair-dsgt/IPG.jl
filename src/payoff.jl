@@ -178,9 +178,9 @@ Return the payoff value of the player `player` from the IPG model `model`.
 
 ## Supported forms:
 
-* `payoff_value(model, player)` returns the payoff value of `player` at the equilibrium stored in the optimizer attached to the IPG model `model`. 
+* `payoff_value(model, player)` returns the payoff value of `player` at the equilibrium stored in the equilibrium solver attached to the IPG model `model`. 
 If multiple equilibria are stored, the first one is used.
-* `payoff_value(model, player, i)` returns the payoff value of `player` at the `i`-th equilibrium stored in the optimizer attached to the IPG model `model`. 
+* `payoff_value(model, player, i)` returns the payoff value of `player` at the `i`-th equilibrium stored in the equilibrium solver attached to the IPG model `model`. 
 An error is thrown if `i` is out of bounds.
 
 If the equilibrium is mixed, the returned value is the player's expected payoff.

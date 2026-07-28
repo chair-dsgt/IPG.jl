@@ -58,8 +58,8 @@ end
 Return the value of the variable `variable` at a given profile or strategy.
 
 ## Supported forms:
-* `value(model, variable)` returns the value of `variable` at the equilibrium stored in the optimizer attached to `model`. If multiple equilibria are stored, the first one is used.
-* `value(model, variable, i)` returns the value of `variable` at the `i`-th equilibrium stored in the optimizer attached to `model`. An error is thrown if `i` is out of bounds.
+* `value(model, variable)` returns the value of `variable` at the equilibrium stored in the equilibrium solver attached to `model`. If multiple equilibria are stored, the first one is used.
+* `value(model, variable, i)` returns the value of `variable` at the `i`-th equilibrium stored in the equilibrium solver attached to `model`. An error is thrown if `i` is out of bounds.
 * `value(strategy, variable)` returns the value of `variable` at the strategy `strategy`. The strategy must belong to the player that controls `variable`.
 * `value(profile, variable)` returns the value of `variable` at the profile `profile`. The value is read from the strategy in `profile` of the player that controls `variable`.
 

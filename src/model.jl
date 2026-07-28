@@ -4,11 +4,11 @@ mutable struct IPGModel
     # Each player has a dictionary that maps another player's variable to the parameter representing it in this player's model.
     var_to_param_maps::Vector{Dict{JuMP.VariableRef, JuMP.VariableRef}} 
 
-    optimizer::Union{Nothing, IPGOptimizer}
+    equilibrium_solver::Union{Nothing, EquilibriumSolver}
 end
 
 """
-    IPGModel(n::Int[, optimizer::IPGOptimizer])::IPGModel
+    IPGModel(n::Int[, equilibrium_solver::EquilibriumSolver])::IPGModel
 
 Create a new instance of an integer programming game model with `n` players.
 
@@ -16,14 +16,14 @@ Create a new instance of an integer programming game model with `n` players.
 
 Players are unnamed and are referenced by their id.
 
-`optimizer` must be one of the forms:
+`equilibrium_solver` must be one of the forms:
 
-* Omitted, like `IPGModel(n)`, which creates an IPG model without an attached optimizer
-* An IPG optimizer, like `IPGModel(n, SGM.Optimizer(HiGHS.Optimizer, Gurobi.Optimizer))`, where 
-`SGM.Optimizer` is the main IPG solution algorithm, `HiGHS.Optimizer` is used to solve the best-response 
-problems, and `Gurobi.Optimizer` is used to compute equilibria for the sampled games
+* Omitted, like `IPGModel(n)`, which creates an IPG model without an attached equilibrium solver
+* An IPG equilibrium solver, like `IPGModel(n, SGM.EquilibriumSolver(HiGHS.Optimizer))`, where 
+`SGM.EquilibriumSolver` is the main IPG solution algorithm and `HiGHS.Optimizer` is used to solve the best-response 
+problems
 
-If `optimizer` is not provided, use `set_optimizer!` to set the optimizer before calling `find_equilibrium!` or `find_all_equilibria!`.
+If `equilibrium_solver` is not provided, use `set_solver!` to set the equilibrium solver before calling `find_equilibrium!` or `find_all_equilibria!`.
 """
 function IPGModel(n::Int)::IPGModel
     if n <= 0
@@ -36,27 +36,27 @@ function IPGModel(n::Int)::IPGModel
 
     return IPGModel(players, name_to_id_map, var_to_param_maps, nothing)
 end
-function IPGModel(n::Int, optimizer::IPGOptimizer)::IPGModel
+function IPGModel(n::Int, equilibrium_solver::EquilibriumSolver)::IPGModel
     model = IPGModel(n)
-    set_optimizer!(model, optimizer)
+    set_solver!(model, equilibrium_solver)
     return model
 end
 
 """
-    IPGModel(player_names::Vector{String}[, optimizer::IPGOptimizer])::IPGModel
+    IPGModel(player_names::Vector{String}[, equilibrium_solver::EquilibriumSolver])::IPGModel
 
 Create a new instance of an integer programming game model whose players are named by `player_names`.
 
 `player_names` must be nonempty and contain unique names.
 
-`optimizer` must be one of the forms:
+`equilibrium_solver` must be one of the forms:
 
-* Omitted, like `IPGModel(player_names)`, which creates an IPG model without an attached optimizer
-* An IPG optimizer, like `IPGModel(player_names, SGM.Optimizer(HiGHS.Optimizer, Gurobi.Optimizer))`, where 
-`SGM.Optimizer` is the main IPG solution algorithm, `HiGHS.Optimizer` is used to solve the best-response 
-problems, and `Gurobi.Optimizer` is used to compute equilibria for the sampled games
+* Omitted, like `IPGModel(player_names)`, which creates an IPG model without an attached equilibrium solver
+* An IPG equilibrium solver, like `IPGModel(player_names, SGM.EquilibriumSolver(HiGHS.Optimizer))`, where 
+`SGM.EquilibriumSolver` is the main IPG solution algorithm and `HiGHS.Optimizer` is used to solve the best-response 
+problems
 
-If `optimizer` is not provided, use `set_optimizer!` to set the optimizer before calling `find_equilibrium!` or `find_all_equilibria!`.
+If `equilibrium_solver` is not provided, use `set_solver!` to set the equilibrium solver before calling `find_equilibrium!` or `find_all_equilibria!`.
 """
 function IPGModel(player_names::Vector{String})::IPGModel
     n = length(player_names)
@@ -78,19 +78,19 @@ function IPGModel(player_names::Vector{String})::IPGModel
 
     return IPGModel(players, name_to_id_map, var_to_param_maps, nothing)
 end
-function IPGModel(player_names::Vector{String}, optimizer::IPGOptimizer)::IPGModel
+function IPGModel(player_names::Vector{String}, equilibrium_solver::EquilibriumSolver)::IPGModel
     model = IPGModel(player_names)
-    set_optimizer!(model, optimizer)
+    set_solver!(model, equilibrium_solver)
     return model
 end
 
 """
-    set_optimizer!(model::IPGModel, optimizer::IPGOptimizer)::Nothing
+    set_solver!(model::IPGModel, equilibrium_solver::EquilibriumSolver)::Nothing
 
-Set the IPG optimizer of the model `model` to `optimizer`.
+Set the IPG equilibrium solver of the model `model` to `equilibrium_solver`.
 """
-function set_optimizer!(model::IPGModel, optimizer::IPGOptimizer)::Nothing
-    model.optimizer = optimizer
+function set_solver!(model::IPGModel, equilibrium_solver::EquilibriumSolver)::Nothing
+    model.equilibrium_solver = equilibrium_solver
     return nothing
 end
 
