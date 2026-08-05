@@ -1,5 +1,5 @@
 """
-    @variable(model::IPGModel, player::Int, expr, args..., kw_args...)
+    @variable(model::IPGModel, player::Union{Int, String}, expr, args..., kw_args...)
 
 Add a variable described by the expression `expr`, the positional arguments `args` and the keyword arguments `kw_args` to the player `player` from the IPG model `model`.
 
@@ -31,7 +31,8 @@ y
 ```
 """
 macro variable(model, player, args...)
-    player_model = :($(model).players[$(player)])
+    id = gensym(:player_id)
+    player_model = :($(model).players[$id])
 
     variable_call = Expr(
         :macrocall,
@@ -42,9 +43,7 @@ macro variable(model, player, args...)
     )
 
     return esc(quote
-        if $(player) < 1 || $(player) > length($(model).players)
-            throw(ArgumentError("Player is invalid"))
-        end
+        local $id = IPG.get_player_id($(model), $(player))
 
         $variable_call
     end)
@@ -59,8 +58,8 @@ end
 Return the value of the variable `variable` at a given profile or strategy.
 
 ## Supported forms:
-* `value(model, variable)` returns the value of `variable` at the equilibrium stored in the optimizer attached to `model`. If multiple equilibria are stored, the first one is used.
-* `value(model, variable, i)` returns the value of `variable` at the `i`-th equilibrium stored in the optimizer attached to `model`. An error is thrown if `i` is out of bounds.
+* `value(model, variable)` returns the value of `variable` at the equilibrium stored in the equilibrium solver attached to `model`. If multiple equilibria are stored, the first one is used.
+* `value(model, variable, i)` returns the value of `variable` at the `i`-th equilibrium stored in the equilibrium solver attached to `model`. An error is thrown if `i` is out of bounds.
 * `value(strategy, variable)` returns the value of `variable` at the strategy `strategy`. The strategy must belong to the player that controls `variable`.
 * `value(profile, variable)` returns the value of `variable` at the profile `profile`. The value is read from the strategy in `profile` of the player that controls `variable`.
 

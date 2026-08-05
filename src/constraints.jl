@@ -1,8 +1,8 @@
 """
-    @constraint(model::IPGModel, player::Int, expr, args...; kwargs...)
-    @constraint(model::IPGModel, player::Int, [index_sets...], expr, args...; kwargs...)
-    @constraint(model::IPGModel, player::Int, name, expr, args...; kwargs...)
-    @constraint(model::IPGModel, player::Int, name[index_sets...], expr, args...; kwargs...)
+    @constraint(model::IPGModel, player::Union{Int, String}, expr, args...; kwargs...)
+    @constraint(model::IPGModel, player::Union{Int, String}, [index_sets...], expr, args...; kwargs...)
+    @constraint(model::IPGModel, player::Union{Int, String}, name, expr, args...; kwargs...)
+    @constraint(model::IPGModel, player::Union{Int, String}, name[index_sets...], expr, args...; kwargs...)
 
 Add a constraint described by the expression `expr` to the player `player` from the IPG model `model`.
 
@@ -35,7 +35,8 @@ y + z = 40
 ```
 """
 macro constraint(model, player, args...)
-    player_model = :($(model).players[$(player)])
+    id = gensym(:player_id)
+    player_model = :($(model).players[$id])
 
     constraint_call = Expr(
         :macrocall,
@@ -46,17 +47,15 @@ macro constraint(model, player, args...)
     )
 
     return esc(quote
-        if $(player) < 1 || $(player) > length($(model).players)
-            throw(ArgumentError("Player is invalid"))
-        end
+        local $id = IPG.get_player_id($(model), $(player))
 
         constraint = $constraint_call
 
         try
-            IPG.check_variables_in_constraint($(model), $(player), constraint) # Check if all variables in constraint belong to player
+            IPG.check_variables_in_constraint($(model), $id, constraint) # Check if all variables in constraint belong to player
         catch err
-            IPG.remove_constraint!($(model).players[$(player)], constraint)
-            rethrow(error)
+            IPG.remove_constraint!($(model).players[$id], constraint)
+            rethrow()
         end
 
         constraint
@@ -115,6 +114,8 @@ function all_variables_in_constraint(constraint)::Vector{JuMP.VariableRef}
 
         return variables
     end
+
+    throw(ArgumentError("Constraint type $(typeof(constraint)) unsupported"))
 end
 
 function remove_constraint!(model::JuMP.Model, constraint::JuMP.ConstraintRef)::Nothing
