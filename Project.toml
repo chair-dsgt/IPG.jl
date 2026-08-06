@@ -7,8 +7,8 @@ authors = ["maxined2 <dussault.maxine@icloud.com> and contributors"]
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 
 [compat]
-JuMP = "1.30.1"
-julia = "1.10.10"
+JuMP = "1.30"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
