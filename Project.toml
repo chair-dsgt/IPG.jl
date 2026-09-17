@@ -9,15 +9,17 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 [compat]
 HiGHS = "1"
 JuMP = "1.30"
+SCIP = "0.12"
 TestItemRunner = "1.1"
 TestItems = "1.0"
 julia = "1.10"
 
 [extras]
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+SCIP = "82193955-e24f-5292-bf16-6f2c5261a85f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
 
 [targets]
-test = ["Test", "TestItems", "TestItemRunner", "HiGHS"]
+test = ["Test", "TestItems", "TestItemRunner", "HiGHS", "SCIP"]

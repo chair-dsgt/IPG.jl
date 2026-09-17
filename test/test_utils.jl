@@ -166,6 +166,22 @@ end
     end
 end
 
+# SCIP is the default optimizer for the best-response tests: it is the only free
+# solver here that covers every fixture, because it solves MIQP and non-convex
+# quadratic objectives globally. HiGHS handles neither.
+@testsnippet SCIPOptimizer begin
+    using JuMP
+    using SCIP
+
+    scip_optimizer = JuMP.optimizer_with_attributes(
+        SCIP.Optimizer,
+        "display/verblevel" => 0,
+        "limits/gap" => 0.0,
+    )
+end
+
+# HiGHS is kept only to pin the pure/mixed asymmetry described in the TODO at the
+# top of best_response.jl. It is not the general-purpose test optimizer.
 @testsnippet HiGHSOptimizer begin
     using JuMP
     using HiGHS
