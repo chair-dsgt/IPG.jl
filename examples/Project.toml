@@ -1,0 +1,26 @@
+# Environment for running the examples. IPG.jl does not depend on SGM.jl (that would be
+# circular), so neither package's own environment can load everything an example needs.
+#
+#     julia --project=examples -e 'using Pkg; Pkg.instantiate()'
+#     julia --project=examples examples/example_5_3.jl
+#
+# `max-cov.jl` additionally needs PyCall and a working Python:
+#
+#     julia --project=examples -e 'using Pkg; Pkg.add("PyCall")'
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+IPG = "c1653674-6431-4a38-bd44-0ce59f265496"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SCIP = "82193955-e24f-5292-bf16-6f2c5261a85f"
+SGM = "1227124d-628d-4ffb-bc33-67815134cfb3"
+
+[sources]
+IPG = {path = ".."}
+SGM = {path = "../../SGM.jl"}
+
+[compat]
+SCIP = "0.12"
+julia = "1.10"
