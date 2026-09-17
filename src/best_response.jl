@@ -17,6 +17,23 @@ function get_best_response_model(model::IPGModel, player::Union{Int, String}, pr
     var_to_param_map = model.var_to_param_maps[player_id]
     best_response_model, reference_map = JuMP.copy_model(player_model)
 
+    # TODO: substitute the parameter values here, as the mixed branch below does
+    # via replace_param_with_val, instead of only setting them.
+    #
+    # Leaving the parameters in the objective keeps a payoff that is bilinear in
+    # own x opponent variables as a quadratic function over a merely pinned
+    # variable. Nothing downstream repairs that: MOI's only parameter bridge,
+    # ParameterToEqualToBridge, maps `x in Parameter(v)` to a real variable with
+    # `x == v`, and folding the value into a quadratic coefficient would be
+    # presolve rather than a type reformulation. The solver is therefore handed a
+    # non-convex MIQP to express what is a plain MILP once the parameters are
+    # fixed, which restricts IPG to solvers accepting non-convex quadratics
+    # (Gurobi, SCIP) and rules out HiGHS, Cbc and GLPK.
+    #
+    # The mixed branch already handles PureStrategy entries, so this guard looks
+    # removable outright rather than needing its own substitution pass. See
+    # test/README.md, "Open TODO"; the test pinning the current behaviour is
+    # "Pure and mixed branches disagree on solver portability".
     if all(strategy -> strategy isa PureStrategy, profile) # Pure profile
         for strategy in profile
             for (var, val) in strategy.variable_values
