@@ -38,4 +38,33 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
+      - uses: actions/setup-python@v5
+        if: matrix.version != '1.10'
+        with:
+          python-version: '3.12'
+      - name: Prepare examples
+        if: matrix.version != '1.10'
+        working-directory: examples
+        env:
+          PYTHON: python3
+          EBMC_DATA_DIR: ${{ runner.temp }}/ipg-ebmc-data
+        run: |
+          julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.build("PyCall")'
+          mkdir -p "$EBMC_DATA_DIR"
+          url=https://raw.githubusercontent.com/HyunwooLee0429/Best-response-dynamics-IPG/3447789649de75037921d153da44868da328d9e6/BZR_EBMC/EBMC_generated/multi_dataset
+          for file in 5_50_0.5.csv info_data.pickle; do
+            curl --fail --location --retry 3 --max-time 120 --output "$EBMC_DATA_DIR/$file" "$url/$file"
+          done
+          cd "$EBMC_DATA_DIR"
+          sha256sum --check "$GITHUB_WORKSPACE/examples/data.sha256"
       - uses: julia-actions/julia-runtest@v1
+        env:
+          EBMC_DATA_DIR: ${{ runner.temp }}/ipg-ebmc-data
+          IPG_EXAMPLE_LOG_DIR: ${{ runner.temp }}/ipg-example-logs
+      - name: Upload example logs
+        if: always() && matrix.version != '1.10'
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-logs-${{ matrix.version }}
+          path: ${{ runner.temp }}/ipg-example-logs
+          if-no-files-found: warn
