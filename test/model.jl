@@ -191,7 +191,7 @@ end
     @test length(JuMP.all_variables(game.players[1])) == variables_before
 end
 
-# IPG should handle all payoffs that are linear on the player's own variables.
+# IPG currently rejects payoffs containing a `JuMP.NonlinearExpr`.
 # The fixture is examples/cfld.jl cut down to two sites and two customers: a
 # player's payoff is the market share it captures, a ratio of affine expressions,
 # which JuMP builds as a `NonlinearExpr`.
