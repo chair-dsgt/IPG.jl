@@ -1,7 +1,7 @@
 """
 Two-player Competitive Facility Location and Design (CFLD) problem.
 
-Based on Crönert and Minner (2024). For futher details, see Section 3.2 of:
+Based on Crönert and Minner (2024). For further details, see Section 3.2 of:
     [*T. Crönert, S. Minner, "Equilibrium Identification and Selection in Finite Games". 2024. Operations Research*](https://doi.org/10.1287/opre.2022.2413)
 
 # Status: this game cannot currently be expressed with IPG.jl
