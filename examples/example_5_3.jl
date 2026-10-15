@@ -1,7 +1,7 @@
 """
 Computing an equilibrium with SGM (Example 5.3, CLP, 2022)
 
-Implementation of Example 5.3 from Carvalho, Lodi, and Pedroso (2022). For futher details,
+Implementation of Example 5.3 from Carvalho, Lodi, and Pedroso (2022). For further details,
     see:
     [*M. Carvalho, A. Lodi, J. P. Pedroso, "Computing equilibria for integer programming games". 2022. European Journal of Operational Research*](https://www.sciencedirect.com/science/article/pii/S0377221722002727)
     [*M. Carvalho, A. Lodi, J. P. Pedroso, "Computing Nash equilibria for integer programming games". 2020. arXiv:2012.07082*](https://arxiv.org/abs/2012.07082)
