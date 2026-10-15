@@ -2,20 +2,20 @@
 Invasive-species surveillance game over a lake network (the "SELFISH" game).
 
 Each county chooses which of its lakes to inspect, under a budget, and is credited for the
-boater traffic on the arcs leaving it whose endpoints are covered.
+boater traffic on the arcs entering it, and on arcs within it, whose endpoints are covered.
 
 # Adaptation note: the coupling constraint was projected out
 
 The original formulation gives county `c` a second family of binary variables `y_a`, one per
-arc `a` leaving `c`, tied to the inspection decisions by
+arc in its induced inbound arc set `arcs_minus_c[c]`, tied to the inspection decisions by
 
     y_a <= x_tail(a) + x_head(a),     a in arcs_minus_c[c],
 
-with payoff `sum(t[a] * n[a] * y_a)`. Since `tail(a)` is a lake of `c` and `head(a)` is a
-lake of another county, that constraint contains a variable the player does not control.
-IPG.jl does not allow this: each player is a separate `JuMP.Model`, so `@constraint` rejects
-foreign variables (`VariableNotOwned`), and the variable-to-parameter mechanism that lets
-`@payoff` mix players applies to payoffs only. The old implementation worked around it with
+with payoff `sum(t[a] * n[a] * y_a)`. For an incoming cross-county arc, its tail is controlled
+by another county, so the constraint contains a variable the player does not control. IPG.jl
+does not allow this: each player is a separate `JuMP.Model`, so `@constraint` rejects foreign
+variables (`VariableNotOwned`), and the variable-to-parameter mechanism that lets `@payoff`
+mix players applies to payoffs only. The old implementation worked around it with
 `IPG.internalize_expr`, which has no counterpart here.
 
 The constraint can be removed without changing the game. Informally: `y` is a pure auxiliary
@@ -33,9 +33,9 @@ but the coupling only bounds `y` from above and `y = 0` is always feasible, so t
 best-response correspondence in `x_c` is exactly the one of the payoff above. The two games
 therefore have the same equilibria in `x`.
 
-The resulting payoff is quadratic, and each of its quadratic terms pairs one variable of `c`
-with one variable of a single other player, so `SGM.is_pairwise_payoff` holds and the sampled
-games stay polymatrix games.
+The resulting payoff is quadratic. Internal-arc terms involve only variables of `c`, while
+incoming cross-county terms pair one variable of `c` with one variable of a single other
+player. Thus `SGM.is_pairwise_payoff` holds and the sampled games stay polymatrix games.
 
 # Notes
 - From the `IPG.jl/examples` directory, instantiate the example environment once:
@@ -162,15 +162,20 @@ end
 
 arcs = collect(keys(n))
 
-# arcs within, incoming to, and outgoing from each county
+# Arc sets from Definition 1 of the paper:
+# - arcs_c[c]       = A_c, arcs whose two endpoints are in county c;
+# - arcs_minus_c[c] = A^-[I_c], all arcs whose terminal point is in county c;
+# - delta_plus_c[c]  = δ^+(I_c), arcs leaving county c.
+# Consequently, arcs_minus_c[c] contains A_c ∪ δ^-(I_c), and the union of
+# arcs_minus_c[c] and delta_plus_c[c] is the induced neighborhood arc set A[I_c].
 arcs_c = Dict{Any, Vector{Tuple{Any,Any}}}()
-arcs_plus_c = Dict{Any, Vector{Tuple{Any,Any}}}()
+delta_plus_c = Dict{Any, Vector{Tuple{Any,Any}}}()
 arcs_minus_c = Dict{Any, Vector{Tuple{Any,Any}}}()
 
 for county in counties
     arcs_c[county] = [arc for arc in arcs if (arc[1][1:2] == county) && (arc[2][1:2] == county)]
-    arcs_plus_c[county] = [arc for arc in arcs if (arc[2][1:2] == county) && (arc[1][1:2] != county)]
-    arcs_minus_c[county] = [arc for arc in arcs if (arc[1][1:2] == county) && (arc[2][1:2] != county)]
+    arcs_minus_c[county] = [arc for arc in arcs if arc[2][1:2] == county]
+    delta_plus_c[county] = [arc for arc in arcs if (arc[1][1:2] == county) && (arc[2][1:2] != county)]
 end
 
 # === Define and Solve SELFISH Game using IPG.jl === #
@@ -187,8 +192,8 @@ for county in counties
     x_c[county] = @variable(model, county, [I_c[county]], Bin, base_name="x_$(county)_")
 end
 
-# a single lake -> variable lookup across all players, so that a county's payoff can name the
-# lakes of the counties it sends boaters to
+# A single lake -> variable lookup across all players, so that a county's payoff can name the
+# origins in other counties that send boaters to its lakes.
 x = Dict{eltype(I), JuMP.VariableRef}()
 for county in counties, i in I_c[county]
     x[i] = x_c[county][i]
@@ -201,13 +206,14 @@ for county in counties
     @constraint(model, county, sum(x_c[county]) <= county_budget[county])
 
     ### set payoff
-    # t[arc] * n[arc] * (x_tail + x_head - x_tail * x_head): the traffic on `arc` is credited
-    # to `county` when either endpoint is inspected. `x[arc[2]]` belongs to another player,
-    # which `@payoff` handles by substituting a parameter of this player's problem.
+    # t[arc] * n[arc] * (x_tail + x_head - x_tail * x_head): the traffic on an internal or
+    # incoming arc is credited to `county` when either endpoint is inspected. On an incoming
+    # cross-county arc, `x[arc[1]]` belongs to another player; `@payoff` substitutes a
+    # parameter of this player's problem for it.
     @payoff(model, county, Max, sum(
         t[arc] * n[arc] * (x[arc[1]] + x[arc[2]] - x[arc[1]] * x[arc[2]])
         for arc in arcs_minus_c[county];
-        init = zero(JuMP.QuadExpr)   # a county may have no outgoing arc
+        init = zero(JuMP.QuadExpr)
     ))
 end
 
@@ -245,6 +251,9 @@ if status == IPG.EQUILIBRIUM_FOUND
             end
         end
     end
+    social_welfare = sum(payoff_value(model, county) for county in counties)
+    println("social welfare: $social_welfare")
+    println("social welfare (paper units, thousands): ", round(social_welfare / 1000; digits=1))
 elseif status == IPG.ITERATION_LIMIT
     println(
         "No equilibrium was certified before EBMC_MAX_ITER=$max_iter. " *
