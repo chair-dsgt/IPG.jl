@@ -1,41 +1,18 @@
 """
-Invasive-species surveillance game over a lake network (the "SELFISH" game).
+Selfish EBMC game from Lee et al., *Random-Restart Best-Response Dynamics for Large-Scale
+Integer Programming Games and Their Applications* (February 24, 2026):
+https://optimization-online.org/wp-content/uploads/2025/06/IPG_preprint_OO.pdf
 
-Each county chooses which of its lakes to inspect, under a budget, and is credited for the
-boater traffic on the arcs entering it, and on arcs within it, whose endpoints are covered.
+The model implements §5.2, Definition 1 and (11), with the quadratic IPG reformulation of
+Appendix I. Full utilities retain the opponent-only term c_i(x^{-i}) for welfare reporting.
+The default instance is Table A11's multi-AIS row n=5, BG=0.5 (50 lakes per county, §7.2).
+Its reference PNE welfare is 557.6 in thousands, rounded to one decimal place (§7.1).
 
-# Adaptation note: the coupling constraint was projected out
-
-The original formulation gives county `c` a second family of binary variables `y_a`, one per
-arc in its induced inbound arc set `arcs_minus_c[c]`, tied to the inspection decisions by
-
-    y_a <= x_tail(a) + x_head(a),     a in arcs_minus_c[c],
-
-with payoff `sum(t[a] * n[a] * y_a)`. For an incoming cross-county arc, its tail is controlled
-by another county, so the constraint contains a variable the player does not control. IPG.jl
-does not allow this: each player is a separate `JuMP.Model`, so `@constraint` rejects foreign
-variables (`VariableNotOwned`), and the variable-to-parameter mechanism that lets `@payoff`
-mix players applies to payoffs only. The old implementation worked around it with
-`IPG.internalize_expr`, which has no counterpart here.
-
-The constraint can be removed without changing the game. Informally: `y` is a pure auxiliary
-variable that the player always wants to push to its upper bound, and that bound is an OR of
-two binaries, which is quadratic. Formally, fix the opponents' inspections `x_{-c}`. The
-coefficients `t[a] * n[a]` are nonnegative, so an optimal `y` is
-`y_a = min(1, x_tail(a) + x_head(a))`, and since `x` is binary that equals
-`x_tail(a) + x_head(a) - x_tail(a) * x_head(a)`. County `c`'s optimal value is therefore
-
-    max over feasible x_c of  sum_a t[a] * n[a] * (x_tail(a) + x_head(a) - x_tail(a) * x_head(a)),
-
-with the same maximizers in `x_c`. Note that the original model is a *generalized* Nash
-equilibrium problem — the coupling constraint makes `c`'s feasible set depend on `x_{-c}` —
-but the coupling only bounds `y` from above and `y = 0` is always feasible, so the
-best-response correspondence in `x_c` is exactly the one of the payoff above. The two games
-therefore have the same equilibria in `x`.
-
-The resulting payoff is quadratic. Internal-arc terms involve only variables of `c`, while
-incoming cross-county terms pair one variable of `c` with one variable of a single other
-player. Thus `SGM.is_pairwise_payoff` holds and the sampled games stay polymatrix games.
+This example starts from the all-zero profile (§7.1) and uses SGM with SCIP best responses.
+It compares equilibrium welfare with Table A11; it does not replicate §7.1's RRR-BRD
+algorithm, Gurobi 11.0.3 / 16-thread setup,
+reusable best-response models, or timing and round counts. A mixed result cannot be used
+as a reproduction of that table's PNE result.
 
 # Notes
 - From the `IPG.jl/examples` directory, instantiate the example environment once:
@@ -60,11 +37,8 @@ player. Thus `SGM.is_pairwise_payoff` holds and the sampled games stay polymatri
 - The data loader uses `PyCall` and Python's standard-library `pickle` module. If PyCall has
   not been configured yet, set `ENV["PYTHON"]` to a working Python executable and run
   `Pkg.build("PyCall")` in the example environment.
-- SCIP can be replaced with other solvers, such as Gurobi or CPLEX. It is only used for the
-  best-response problems. SGM solves each sampled game through NormalGames.jl, which builds
-  Gurobi models internally, so a working Gurobi installation and licence are needed to run
-  this script end to end. Configure the licence as described by Gurobi (for example via
-  `GRB_LICENSE_FILE`) before starting Julia.
+- SCIP solves best responses; NormalGames uses Gurobi for sampled games. A working Gurobi
+  licence is required (for example, configured with `GRB_LICENSE_FILE`).
 - The instance and solve settings can be overridden with `EBMC_TYPE`, `EBMC_COUNTIES`,
   `EBMC_LAKES_PER_COUNTY`, `EBMC_BUDGET_RATIO`, `EBMC_MAX_ITER`, `EBMC_TIME_LIMIT`, and
   `EBMC_DEV_TOL`. The time limit is in seconds; its default is unlimited.
@@ -116,7 +90,7 @@ info_data = load_pickle(info_path)
 # extract the value list for the (county_size, num_lakes_per_county, budget_ratio) key
 vals = info_data[(county_size, num_lakes_per_county, budget_ratio)]
 
-# values come from Python (0-based originally) so use 1-based Julia indices
+# PyCall converts the stored Python tuple to a Julia tuple (indexed from 1).
 counties = String[string(c) for c in vals[1]]   # `IPGModel` names players with a Vector{String}
 num_lakes_per_county = Int(vals[2])         # ensure it's an Int
 infestation_status = vals[3]             # likely a Python dict
@@ -131,7 +105,11 @@ for (key, infestation_vals) in infestation_status
 end
 
 # === lakes and lake->county mapping === #
-lakes = unique(vcat(df_edge[:, :dow_origin], df_edge[:, :dow_destination]))
+# Include isolated lakes recorded in the metadata, even if they have no risky CSV arcs.
+lakes = unique(vcat(
+    String.(df_edge[:, :dow_origin]), String.(df_edge[:, :dow_destination]),
+    String.(collect(keys(infestation_status))),
+))
 lake_county = Dict(lake => lake[1:2] for lake in lakes)   # first two chars like Python's [:2]
 
 # === Compute Lake Weights === #
@@ -151,11 +129,28 @@ I = lakes
 I_c = Dict(county => [i for i in I if i[1:2] == county] for county in counties)
 I_c_complement = Dict(county => [i for i in I if !(i in I_c[county])] for county in counties)
 
+# Check the synthetic-instance construction against §7.2 and the supplied metadata.
+@assert length(counties) == county_size
+@assert sum(length(I_c[c]) for c in counties) == length(I)
+for county in counties
+    @assert length(I_c[county]) == num_lakes_per_county
+    expected_budget = floor(Int, budget_ratio * count(i -> i in infested_lakes, I_c[county]))
+    @assert county_budget[county] == expected_budget
+end
+
 # build arc dictionaries n (weight) and t (bij)
 n = Dict{Tuple{Any,Any}, Float64}()
 t = Dict{Tuple{Any,Any}, Float64}()
 for row in eachrow(df_edge)
-    arc = (row[:dow_origin], row[:dow_destination])
+    arc = (string(row[:dow_origin]), string(row[:dow_destination]))
+    @assert !haskey(n, arc) "Duplicate origin-destination arc: $arc"
+    @assert isfinite(row[:weight]) && row[:weight] >= 0
+    origin_status = infestation_status[arc[1]]
+    destination_status = infestation_status[arc[2]]
+    risk = sum(origin_status[s] * (1 - destination_status[s]) for s in keys(origin_status))
+    @assert row[:bij] == risk "Risk weight disagrees with infestation metadata: $arc"
+    @assert string(row[Symbol("county_name.origin")]) == lake_county[arc[1]]
+    @assert string(row[Symbol("county_name.destination")]) == lake_county[arc[2]]
     n[arc] = row[:weight]
     t[arc] = row[:bij]
 end
@@ -186,10 +181,10 @@ import IPG.JuMP  # imported, not `using`, so that JuMP's macros do not shadow IP
 # one player per county, addressed by name
 model = IPGModel(counties)
 
-# add variables
+# Initialize with the all-zero profile (0^N), as discussed in §7.1 and reported in Table A11.
 x_c = Dict{String, Any}()
 for county in counties
-    x_c[county] = @variable(model, county, [I_c[county]], Bin, base_name="x_$(county)_")
+    x_c[county] = @variable(model, county, [I_c[county]], Bin, start=0.0, base_name="x_$(county)_")
 end
 
 # A single lake -> variable lookup across all players, so that a county's payoff can name the
@@ -201,8 +196,8 @@ end
 
 for county in counties
     ### add constraints
-    # Only the budget constraint is left: see the adaptation note above for why the
-    # `y_a <= x_tail(a) + x_head(a)` family, which mixed players, could be projected out.
+    # Independent binary strategy set, (9c), (9e); coverage variables are eliminated
+    # according to Appendix I.
     @constraint(model, county, sum(x_c[county]) <= county_budget[county])
 
     ### set payoff
@@ -254,6 +249,43 @@ if status == IPG.EQUILIBRIUM_FOUND
     social_welfare = sum(payoff_value(model, county) for county in counties)
     println("social welfare: $social_welfare")
     println("social welfare (paper units, thousands): ", round(social_welfare / 1000; digits=1))
+
+    # Table A11 concerns pure equilibria. Validate the actual support before comparison.
+    profile = equilibrium(model)
+    is_pure = all(s -> s isa PureStrategy || length(s.supp) == 1, profile)
+    if is_pure
+        pure_profile = PureStrategy[s isa PureStrategy ? s : only(s.supp) for s in profile]
+        selected = Set(i for i in I if value(pure_profile, x[i]) > 0.5)
+        for county in counties
+            @assert all(i -> isapprox(value(pure_profile, x[i]), round(value(pure_profile, x[i])); atol=1e-6), I_c[county])
+            @assert count(i -> i in selected, I_c[county]) <= county_budget[county]
+            covered_traffic = sum(n[a] * t[a] for a in arcs_minus_c[county] if a[1] in selected || a[2] in selected; init=0.0)
+            @assert isapprox(covered_traffic, payoff_value(model, county); atol=dev_tol)
+        end
+        direct_welfare = sum(n[a] * t[a] for a in arcs if a[1] in selected || a[2] in selected; init=0.0)
+        @assert isapprox(direct_welfare, social_welfare; atol=dev_tol)
+
+        # Re-solve all deviations to optimality, independently of SGM's stopping test.
+        regrets = Float64[]
+        for (id, county) in enumerate(counties)
+            others = PureStrategy[s for s in pure_profile if s.id != id]
+            br, _ = get_best_response_model(model, county, others, SCIP.Optimizer)
+            JuMP.set_silent(br)
+            JuMP.set_optimizer_attribute(br, "limits/gap", 0.0)
+            JuMP.set_optimizer_attribute(br, "limits/absgap", 0.0)
+            JuMP.optimize!(br)
+            @assert JuMP.termination_status(br) == JuMP.MOI.OPTIMAL
+            push!(regrets, max(0.0, JuMP.objective_bound(br) - payoff_value(model, county)))
+        end
+        @assert maximum(regrets) <= dev_tol
+        println("pure-equilibrium certificate: maximum unilateral gain <= ", maximum(regrets))
+        if (type_dataset, county_size, num_lakes_per_county, budget_ratio) == ("multi", 5, 50, 0.5)
+            matches = round(social_welfare / 1000; digits=1) == 557.6
+            println("Table A11 (n=5, BG=0.5): reference 557.6; rounded welfare matches: ", matches)
+        end
+    else
+        println("Mixed equilibrium: no comparison with Table A11's PNE column.")
+    end
 elseif status == IPG.ITERATION_LIMIT
     println(
         "No equilibrium was certified before EBMC_MAX_ITER=$max_iter. " *
