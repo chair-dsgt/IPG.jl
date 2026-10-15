@@ -38,12 +38,36 @@ with one variable of a single other player, so `SGM.is_pairwise_payoff` holds an
 games stay polymatrix games.
 
 # Notes
-- This script needs the `EBMC_generated` dataset next to it, plus `CSV`, `DataFrames` and
-  `PyCall` (with a working Python) to read it. Only the game-definition section below was
-  changed; the data-loading section is the original one.
+- From the `IPG.jl/examples` directory, instantiate the example environment once:
+
+      julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+- Download the synthetic data used by the default settings from revision
+  `3447789649de75037921d153da44868da328d9e6` of the authors' repository:
+
+      mkdir -p EBMC_generated/multi_dataset
+      curl -L -o EBMC_generated/multi_dataset/5_50_0.5.csv \
+        https://raw.githubusercontent.com/HyunwooLee0429/Best-response-dynamics-IPG/3447789649de75037921d153da44868da328d9e6/BZR_EBMC/EBMC_generated/multi_dataset/5_50_0.5.csv
+      curl -L -o EBMC_generated/multi_dataset/info_data.pickle \
+        https://raw.githubusercontent.com/HyunwooLee0429/Best-response-dynamics-IPG/3447789649de75037921d153da44868da328d9e6/BZR_EBMC/EBMC_generated/multi_dataset/info_data.pickle
+
+  By default, data is resolved relative to this file. Set `EBMC_DATA_DIR` to the directory
+  containing the CSV and `info_data.pickle` to use data stored elsewhere.
+- Run the example with:
+
+      julia --project=. max-cov.jl
+
+- The data loader uses `PyCall` and Python's standard-library `pickle` module. If PyCall has
+  not been configured yet, set `ENV["PYTHON"]` to a working Python executable and run
+  `Pkg.build("PyCall")` in the example environment.
 - SCIP can be replaced with other solvers, such as Gurobi or CPLEX. It is only used for the
   best-response problems. SGM solves each sampled game through NormalGames.jl, which builds
-  Gurobi models internally, so a Gurobi licence is needed to run this script end to end.
+  Gurobi models internally, so a working Gurobi installation and licence are needed to run
+  this script end to end. Configure the licence as described by Gurobi (for example via
+  `GRB_LICENSE_FILE`) before starting Julia.
+- The instance and solve settings can be overridden with `EBMC_TYPE`, `EBMC_COUNTIES`,
+  `EBMC_LAKES_PER_COUNTY`, `EBMC_BUDGET_RATIO`, `EBMC_MAX_ITER`, `EBMC_TIME_LIMIT`, and
+  `EBMC_DEV_TOL`. The time limit is in seconds; its default is unlimited.
 """
 
 using CSV
@@ -61,17 +85,32 @@ def load_pickle(fpath):
 
 load_pickle = py"load_pickle"
 
-# these parameters must match those in the csv file name, and the folder from which they are downloaded
-type_dataset = "multi"
-county_size = 5
-num_lakes_per_county = 50
-budget_ratio = 0.5
+# These parameters must match a key in info_data.pickle and the corresponding CSV file name.
+type_dataset = get(ENV, "EBMC_TYPE", "multi")
+county_size = parse(Int, get(ENV, "EBMC_COUNTIES", "5"))
+num_lakes_per_county = parse(Int, get(ENV, "EBMC_LAKES_PER_COUNTY", "50"))
+budget_ratio = parse(Float64, get(ENV, "EBMC_BUDGET_RATIO", "0.5"))
 
-dirname = "EBMC_generated/$(type_dataset)_dataset/"
+max_iter = parse(Int, get(ENV, "EBMC_MAX_ITER", "10"))
+time_limit = parse(Float64, get(ENV, "EBMC_TIME_LIMIT", "Inf"))
+dev_tol = parse(Float64, get(ENV, "EBMC_DEV_TOL", "1e-3"))
+
+default_data_dir = joinpath(@__DIR__, "EBMC_generated", "$(type_dataset)_dataset")
+dirname = abspath(get(ENV, "EBMC_DATA_DIR", default_data_dir))
 fname = "$(county_size)_$(num_lakes_per_county)_$(budget_ratio).csv"
-df_edge = DataFrame(CSV.File(dirname * fname))
+csv_path = joinpath(dirname, fname)
+info_path = joinpath(dirname, "info_data.pickle")
 
-info_data = load_pickle(dirname * "info_data.pickle")
+for path in (csv_path, info_path)
+    isfile(path) || error(
+        "Required EBMC data file not found: $path. " *
+        "See the setup instructions at the top of $(abspath(@__FILE__)).",
+    )
+end
+
+df_edge = DataFrame(CSV.File(csv_path))
+
+info_data = load_pickle(info_path)
 
 # === Unpack Experiment Settings === #
 # extract the value list for the (county_size, num_lakes_per_county, budget_ratio) key
@@ -174,15 +213,45 @@ end
 
 set_solver!(model, SGM.EquilibriumSolver(SCIP.Optimizer))
 
-find_equilibrium!(model; max_iter=10)
+println("solving with max_iter=$max_iter, time_limit=$time_limit, dev_tol=$dev_tol")
+find_equilibrium!(model; max_iter=max_iter, time_limit=time_limit, dev_tol=dev_tol)
 
 # ==== Results ====
-println("termination status: ", termination_status(model))
+status = termination_status(model)
+println("termination status: ", status)
 
-if termination_status(model) == IPG.EQUILIBRIUM_FOUND
+if status == IPG.EQUILIBRIUM_FOUND
     for county in counties
-        inspected = [i for i in I_c[county] if value(model, x[i]) > 0.5]
-        println("county $county: payoff = ", payoff_value(model, county),
-                ", inspects ", length(inspected), " lakes: ", inspected)
+        county_strategy = equilibrium(model; player=county)
+        println("county $county: expected payoff = ", payoff_value(model, county))
+
+        if county_strategy isa PureStrategy
+            inspected = [i for i in I_c[county] if value(county_strategy, x[i]) > 0.5]
+            println("  pure strategy inspects ", length(inspected), " lakes: ", inspected)
+        elseif length(county_strategy.supp) == 1 && only(county_strategy.probs) ≈ 1.0
+            pure_strategy = only(county_strategy.supp)
+            inspected = [i for i in I_c[county] if value(pure_strategy, x[i]) > 0.5]
+            println(
+                "  pure-equivalent strategy inspects ",
+                length(inspected),
+                " lakes: ",
+                inspected,
+            )
+        else
+            println("  mixed strategy with ", length(county_strategy.supp), " support points:")
+            for (prob, pure_strategy) in zip(county_strategy.probs, county_strategy.supp)
+                inspected = [i for i in I_c[county] if value(pure_strategy, x[i]) > 0.5]
+                println("    probability $prob: inspects ", length(inspected), " lakes: ", inspected)
+            end
+        end
     end
+elseif status == IPG.ITERATION_LIMIT
+    println(
+        "No equilibrium was certified before EBMC_MAX_ITER=$max_iter. " *
+        "Increase EBMC_MAX_ITER or set EBMC_TIME_LIMIT.",
+    )
+elseif status == IPG.TIME_LIMIT
+    println("No equilibrium was certified before EBMC_TIME_LIMIT=$time_limit seconds.")
+else
+    println("The equilibrium search ended without a result (status $status).")
 end
