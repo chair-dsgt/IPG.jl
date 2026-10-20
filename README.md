@@ -1,6 +1,6 @@
 # Integer Programming Games
 
-[![Build Status](https://github.com/maxined2/IPG.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/maxined2/IPG.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/chair-dsgt/IPG.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/chair-dsgt/IPG.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 IPG.jl is a Julia package for modeling and solving integer programming games. It extends JuMP in order to provide a simple interface for defining player variables, constraints and payoffs. Equilibrium computation algorithms are integrated using the solver interface provided by this package.
 
@@ -10,7 +10,7 @@ IPG.jl requires Julia to be installed. All Julia package dependencies are automa
 ## Installation
 ```julia
 import Pkg
-Pkg.add(url = "https://github.com/maxined2/IPG.jl.git")
+Pkg.add(url = "https://github.com/chair-dsgt/IPG.jl.git")
 ```
 
 ## Modeling
