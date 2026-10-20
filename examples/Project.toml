@@ -12,7 +12,7 @@ SGM = "1227124d-628d-4ffb-bc33-67815134cfb3"
 [sources]
 IPG = {path = ".."}
 NormalGames = {url = "https://github.com/mxmmargarida/Normal-form-games", rev = "bbaa082d5679997fb7b5234a62229d8e2e523320"}
-SGM = {url = "https://github.com/maxined2/SGM.jl", rev = "9cbc7c9cd0b31397a3be2d763a5b314280e85af5"}
+SGM = {url = "https://github.com/maxined2/SGM.jl", rev = "v0.1.0"}
 
 [compat]
 SCIP = "0.12"
