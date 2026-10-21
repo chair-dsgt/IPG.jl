@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Dussault"
+  given-names: "Maxine"
+  // orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Machado Pacheco"
+  given-names: "Bruno"
+  orcid: "https://orcid.org/0000-0002-2635-9340"
+- family-names: "Carvalho"
+  given-names: "Margarida"
+  orcid: "https://orcid.org/0000-0002-2344-0960"
+title: "IPG.jl"
+version: 1.0.0-DEV
+// doi: 10.5281/zenodo.1234
+date-released: 2026-10-21
+url: "https://github.com/chair-dsgt/IPG.jl"
