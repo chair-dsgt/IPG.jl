@@ -4,6 +4,8 @@
 
 IPG.jl is a Julia package for modeling and solving integer programming games. It extends JuMP in order to provide a simple interface for defining player variables, constraints and payoffs. Equilibrium computation algorithms are integrated using the solver interface provided by this package.
 
+If you would like to use this package in its entirety or parts of it, we ask that you cite us. Please use GitHub's citation helper on the right sidebar.
+
 ## Requirements
 IPG.jl requires Julia to be installed. All Julia package dependencies are automatically downloaded during the installation.
 
