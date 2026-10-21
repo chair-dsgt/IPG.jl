@@ -31,9 +31,7 @@ function get_best_response_model(model::IPGModel, player::Union{Int, String}, pr
     # (Gurobi, SCIP) and rules out HiGHS, Cbc and GLPK.
     #
     # The mixed branch already handles PureStrategy entries, so this guard looks
-    # removable outright rather than needing its own substitution pass. See
-    # test/README.md, "Open TODO"; the test pinning the current behaviour is
-    # "Pure and mixed branches disagree on solver portability".
+    # removable outright rather than needing its own substitution pass.
     if all(strategy -> strategy isa PureStrategy, profile) # Pure profile
         for strategy in profile
             for (var, val) in strategy.variable_values
