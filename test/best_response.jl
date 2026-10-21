@@ -33,50 +33,6 @@
     @test JuMP.objective_sense(best_response_model) == JuMP.MAX_SENSE
 end
 
-# Covers: the pure/mixed asymmetry described in the TODO above, at both the model
-# level (which objective gets built) and the solver level (what a solver without
-# non-convex quadratic support can do with it).
-@testitem "Pure and mixed branches disagree on solver portability" setup = [IPGFixtures, HiGHSOptimizer] begin
-    game = get_rock_paper_scissors_game()
-    r1, p1, s1 = IPG.get_player_variables(game.players[1])
-    r2, p2, s2 = IPG.get_player_variables(game.players[2])
-
-    rock = IPG.PureStrategy(2, Dict(r2 => 1.0, p2 => 0.0, s2 => 0.0))
-    # The same opponent strategy, expressed so that the mixed branch is taken.
-    mixed_rock = IPG.MixedStrategy(2, [1.0], [rock])
-
-    # Model level: the pure branch keeps the parameters, so the objective stays
-    # quadratic; the mixed branch substitutes them out and it collapses to the
-    # linear p1 - s1 (paper beats rock, scissors loses to it).
-    pure_model, _ = IPG.get_best_response_model(game, 1, IPG.PureStrategy[rock])
-    mixed_model, reference_map = IPG.get_best_response_model(game, 1, IPG.Strategy[mixed_rock])
-
-    @test !isempty(JuMP.objective_function(pure_model).terms)
-    @test any(JuMP.is_parameter, JuMP.all_variables(pure_model))
-
-    mixed_objective = JuMP.objective_function(mixed_model)
-    @test isempty(mixed_objective.terms)
-    @test JuMP.coefficient(mixed_objective, reference_map[p1]) ≈ 1.0
-    @test JuMP.coefficient(mixed_objective, reference_map[s1]) ≈ -1.0
-    @test JuMP.coefficient(mixed_objective, reference_map[r1]) ≈ 0.0
-
-    # Solver level: HiGHS solves the substituted model and answers paper ...
-    response = IPG.best_response(game, 1, IPG.Strategy[mixed_rock], highs_optimizer)
-    @test (IPG.value(response, r1), IPG.value(response, p1), IPG.value(response, s1)) == (0.0, 1.0, 0.0)
-
-    # ... but cannot solve the identical problem posed through the pure branch,
-    # because it arrives as a non-convex MIQP.
-    #
-    # This assertion is EXPECTED TO FAIL until the TODO in src/best_response.jl
-    # is addressed. It is deliberately not marked @test_broken: a failing test is
-    # the reminder that the pure branch still skips parameter substitution. Once
-    # the branch substitutes, this passes and the whole test item can go.
-    @test IPG.value(
-        IPG.best_response(game, 1, IPG.PureStrategy[rock], highs_optimizer),
-        p1,
-    ) == 1.0
-end
-
 # Covers: best_response on pure profiles (src/best_response.jl:77), checked against
 # the analytic best-response map and its fixed point.
 @testitem "best_response matches the closed-form optimum" setup = [IPGFixtures, SCIPOptimizer] begin

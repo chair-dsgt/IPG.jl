@@ -191,6 +191,45 @@ end
     @test length(JuMP.all_variables(game.players[1])) == variables_before
 end
 
+# IPG currently rejects payoffs containing a `JuMP.NonlinearExpr`.
+# The fixture is examples/cfld.jl cut down to two sites and two customers: a
+# player's payoff is the market share it captures, a ratio of affine expressions,
+# which JuMP builds as a `NonlinearExpr`.
+@testitem "@payoff rejects a nonlinear payoff" setup = [IPGFixtures] begin
+    # Competitive facility location: u[i, j] is the utility site i has for
+    # customer j, w[j] is the customer's weight, and each player opens one
+    # facility. ε keeps the payoff finite when neither player serves a customer.
+    u = [2.0 1.0; 1.0 3.0]
+    w = [1.0, 2.0]
+    ε = 1e-3
+
+    game = IPG.IPGModel(2)
+    IPG.@variable(game, 1, x1[1:2], Bin)
+    IPG.@variable(game, 2, x2[1:2], Bin)
+    IPG.@constraint(game, 1, sum(x1) <= 1)
+    IPG.@constraint(game, 2, sum(x2) <= 1)
+
+    # Share of each customer's weight won against the rival, summed over customers.
+    function market_share(x_self, x_rival)
+        attraction(x, j) = sum(u[i, j] * x[i] for i in 1:2)
+        return sum(
+            w[j] * attraction(x_self, j) /
+                (attraction(x_self, j) + attraction(x_rival, j) + ε)
+            for j in 1:2
+        )
+    end
+
+    payoff_1 = market_share(x1, x2)
+    @test payoff_1 isa JuMP.NonlinearExpr
+
+    @test_throws ArgumentError IPG.@payoff(game, 1, Max, payoff_1)
+
+    # The refusal is clean: prepare_payoff throws before it creates a parameter
+    # for either of x2's entries, and before @objective runs.
+    @test isempty(game.var_to_param_maps[1])
+    @test JuMP.objective_sense(game.players[1]) == JuMP.FEASIBILITY_SENSE
+end
+
 # Covers: get_parameter! reached once per distinct opponent variable in a payoff,
 # on a game where each player depends on three of them.
 @testitem "Variable-to-parameter map covers every shared variable" setup = [IPGFixtures] begin
