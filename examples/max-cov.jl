@@ -215,9 +215,15 @@ end
 set_solver!(model, SGM.EquilibriumSolver(SCIP.Optimizer))
 
 println("solving with max_iter=$max_iter, time_limit=$time_limit, dev_tol=$dev_tol")
+
+start_time = time()
+
 find_equilibrium!(model; max_iter=max_iter, time_limit=time_limit, dev_tol=dev_tol)
 
 # ==== Results ====
+run_time = time() - start_time
+println("SGM run time (s): ", run_time)
+
 status = termination_status(model)
 println("termination status: ", status)
 
