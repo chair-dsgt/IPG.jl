@@ -14,8 +14,8 @@ struct MixedStrategy
         if ~(sum(probs) ≈ 1)
             error("Probabilities must sum to 1.")
         end
-        if any(probs .< 0)
-            error("Probabilities must be non-negative.")
+        if any(probs .< -10^-4)
+            error("Probabilities must be non-negative. Minimum probability: $(minimum(probs))")
         end
 
         # remove strategies with zero probability
