@@ -68,6 +68,7 @@ budget_ratio = parse(Float64, get(ENV, "EBMC_BUDGET_RATIO", "0.5"))
 max_iter = parse(Int, get(ENV, "EBMC_MAX_ITER", "10"))
 time_limit = parse(Float64, get(ENV, "EBMC_TIME_LIMIT", "Inf"))
 dev_tol = parse(Float64, get(ENV, "EBMC_DEV_TOL", "1e-3"))
+init = get(ENV, "EBMC_INIT", "zero")
 
 default_data_dir = joinpath(@__DIR__, "EBMC_generated", "$(type_dataset)_dataset")
 dirname = abspath(get(ENV, "EBMC_DATA_DIR", default_data_dir))
@@ -181,11 +182,46 @@ import IPG.JuMP  # imported, not `using`, so that JuMP's macros do not shadow IP
 # one player per county, addressed by name
 model = IPGModel(counties)
 
-# Initialize with the all-zero profile (0^N), as discussed in §7.1 and reported in Table A11.
 x_c = Dict{String, Any}()
-for county in counties
-    x_c[county] = @variable(model, county, [I_c[county]], Bin, start=0.0, base_name="x_$(county)_")
+if init == "sw" # Initialize with 300s SW model solution, as discussed in §7.1 and reported in Table A11.
+    # Social Welfare Model (§5.1):
+    sw_model = JuMP.Model(SCIP.Optimizer)
+
+    JuMP.@variable(sw_model, x_sw[i in I], Bin)
+    JuMP.@variable(sw_model, y_sw[a in arcs], Bin)
+    JuMP.@objective(sw_model, Max, sum(t[a] * n[a] * y_sw[a] for a in arcs))
+    for a in arcs
+        JuMP.@constraint(sw_model, y_sw[a] <= x_sw[a[1]] + x_sw[a[2]]) # 8b
+    end
+    for county in counties
+        JuMP.@constraint(sw_model, sum(x_sw[i] for i in I_c[county]) <= county_budget[county]) # 8c
+    end
+
+    JuMP.set_time_limit_sec(sw_model, 300)
+
+    sw_start_time = time()
+    JuMP.optimize!(sw_model)
+    sw_run_time = time() - sw_start_time
+
+    println("SW initialization run time (s): ", sw_run_time)
+
+    if !JuMP.has_values(sw_model)
+        error("No feasible solution to the social welfare model was found")
+    end
+
+    sw_start = Dict(i => JuMP.value(x_sw[i]) for i in I)
+
+    for county in counties
+        x_c[county] = @variable(model, county, [i in I_c[county]], Bin, start=sw_start[i], base_name="x_$(county)_")
+    end 
+elseif init == "zero" # Initialize with the all-zero profile (0^N), as discussed in §7.1 and reported in Table A11.
+    for county in counties
+        x_c[county] = @variable(model, county, [I_c[county]], Bin, start=0.0, base_name="x_$(county)_")
+    end 
+else
+    error("Unknown intialization method")
 end
+
 
 # A single lake -> variable lookup across all players, so that a county's payoff can name the
 # origins in other counties that send boaters to its lakes.
